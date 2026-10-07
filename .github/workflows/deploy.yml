@@ -35,6 +35,8 @@ jobs:
           remote_path: ${{ env.REMOTE_DIR }}
 
       - name: SFTP Deploy Inhalte
+        # erst wenn gebaute Seiten im Repo liegen (sonst findet ./site/* nichts)
+        if: hashFiles('site/index.html') != ''
         uses: wlixcc/SFTP-Deploy-Action@v1.2.6
         with:
           server: home115502871.1and1-data.host
