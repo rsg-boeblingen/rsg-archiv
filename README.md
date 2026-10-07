@@ -13,7 +13,7 @@ Live (passwortgeschützte Vorschau): https://rsg-boeblingen.de/archiv/
 | --- | --- |
 | `scripts/` | Python-Scripts für Sicherung, Import und Seitenbau (laufen lokal auf dem Mac) |
 | `site/` | fertige Website: `index.html` (Suche), `b/<id>.html` (Beiträge), `pagefind/` (Suchindex), `archiv.css/js`, `.htaccess` (Passwortschutz) |
-| `.github/workflows/deploy.yml` | lädt `site/` bei jedem Push auf `main` per SFTP nach `/new/archiv` |
+| `.github/workflows/deploy.yml` + `scripts/deploy.py` | lädt bei jedem Push auf `main` nur die geänderten Dateien aus `site/` per SFTP nach `/new/archiv` und löscht entfernte Dateien dort; ein Voll-Deploy lässt sich unter Actions → Run workflow → „voll“ starten |
 
 **Nicht im Repo** (liegen lokal unter `~/rsg-archiv-import/` auf dem Mac Studio):
 Quelldaten (WXR-Export, WordPress-Uploads, Facebook-Sicherung), `archiv.json`
@@ -44,9 +44,8 @@ Voraussetzung: `pip3 install --user 'pagefind[extended]'`.
 Die ID des Beitrags (z. B. `fb-1503906198423322` oder `wp-15017`, steht in der
 Adresse der Beitragsseite) bzw. den Dateinamen des Bildes in
 `~/rsg-archiv-import/sperrliste.txt` eintragen (eine Zeile pro Eintrag) und das
-Archiv neu bauen. Der Deploy löscht keine Dateien auf dem Server: die Seite
-`/new/archiv/b/<id>.html` und die Bilder unter `/new/archiv/bilder/*/<id>/`
-zusätzlich per SFTP löschen.
+Archiv neu bauen und pushen. Die Beitragsseite löscht der Deploy auf dem Server
+automatisch; die Bilder unter `/new/archiv/bilder/*/<id>/` (nicht im Repo) per SFTP löschen.
 
 ## Passwortschutz
 
@@ -60,7 +59,7 @@ per SFTP gepflegt, nie im Repo. Zum Freischalten für alle: die Zeilen
 | Wann | Was |
 | --- | --- |
 | alle paar Monate | Neue Facebook-Posts übernehmen: `rsg_fb_sichern.py` → `rsg_archiv_import.py` → `rsg_archiv_seiten.py` → rsync → push (siehe „Archiv neu bauen“), dann die neuen Bilder per SFTP nach `/new/archiv/bilder` hochladen |
-| bei Löschwunsch | ID in `sperrliste.txt`, neu bauen, pushen, Seite und Bilder auf dem Server per SFTP löschen (siehe oben) |
+| bei Löschwunsch | ID in `sperrliste.txt`, neu bauen, pushen; Bilder auf dem Server per SFTP löschen (siehe oben) |
 | neue Feedback-Person | `htpasswd -B ~/rsg-archiv-import/.htpasswd-archiv NAME` (ohne `-c`!) und die Datei per SFTP nach `/.htpasswd-archiv` hochladen |
 | wenn `style.css?v=N` in `rsg-web` erhöht wird | `CSS_VERSION` in `scripts/rsg_archiv_seiten.py` anpassen und neu bauen |
 | regelmäßig | `~/rsg-archiv-import/` sichern (Time Machine / externe Platte) – einzige Kopie der Quelldaten |
