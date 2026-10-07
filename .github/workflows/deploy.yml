@@ -1,16 +1,19 @@
 name: Deploy Archiv to IONOS
 
-# Lädt den Inhalt von site/ nach rsg-boeblingen.de/archiv/ (IONOS-Pfad /new/archiv).
-# Die Bilder liegen NICHT im Repo – sie werden einmalig per SFTP nach /new/archiv/bilder hochgeladen.
-# Der Ordner /new/archiv muss auf dem Server existieren (einmalig per SFTP: mkdir /new/archiv).
+# Lädt site/ nach rsg-boeblingen.de/archiv/ (IONOS-Pfad /new/archiv) – inkrementell:
+# nur Dateien, die sich seit dem letzten Deploy geändert haben (Stand in /new/archiv/.deploy-sha),
+# gelöschte Dateien werden auch auf dem Server gelöscht. Logik: scripts/deploy.py
+# Die Bilder liegen NICHT im Repo – sie werden per SFTP nach /new/archiv/bilder hochgeladen.
 on:
   push:
     branches: [main]
-    paths: ['site/**', '.github/workflows/deploy.yml']
+    paths: ['site/**', '.github/workflows/deploy.yml', 'scripts/deploy.py']
   workflow_dispatch:
-
-env:
-  REMOTE_DIR: /new/archiv
+    inputs:
+      voll:
+        description: "Alles hochladen statt nur Änderungen (dauert ca. 20 Minuten)"
+        type: boolean
+        default: false
 
 concurrency:
   group: deploy-archiv
@@ -21,31 +24,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      # Reihenfolge wichtig: zuerst .htaccess (Passwortschutz), dann die Inhalte –
-      # so ist das Archiv beim ersten Deploy zu keinem Zeitpunkt ungeschützt.
-      - name: SFTP Deploy .htaccess (Passwortschutz)
-        uses: wlixcc/SFTP-Deploy-Action@v1.2.6
         with:
-          server: home115502871.1and1-data.host
-          port: 22
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          sftp_only: true
-          local_path: ./site/.htaccess
-          # voller Zielpfad: existiert /new/archiv nicht als Ordner, schlägt der Schritt fehl,
-          # statt eine Datei namens "archiv" anzulegen (so geschehen beim ersten Deploy)
-          remote_path: ${{ env.REMOTE_DIR }}/.htaccess
+          fetch-depth: 0          # ganze Historie, damit der Vergleich mit dem letzten Deploy klappt
 
-      - name: SFTP Deploy Inhalte
-        # erst wenn gebaute Seiten im Repo liegen (sonst findet ./site/* nichts)
-        if: hashFiles('site/index.html') != ''
-        uses: wlixcc/SFTP-Deploy-Action@v1.2.6
-        with:
-          server: home115502871.1and1-data.host
-          port: 22
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          sftp_only: true
-          local_path: ./site/*
-          remote_path: ${{ env.REMOTE_DIR }}
+      - name: sshpass installieren
+        run: sudo apt-get install -y -qq sshpass
+
+      - name: Deploy (nur Änderungen)
+        env:
+          SFTP_HOST: home115502871.1and1-data.host
+          SFTP_USER: ${{ secrets.FTP_USERNAME }}
+          SSHPASS: ${{ secrets.FTP_PASSWORD }}
+          REMOTE_DIR: /new/archiv
+          VOLL: ${{ inputs.voll || 'false' }}
+          BASIS_SHA: ${{ github.event.before }}
+        run: python3 scripts/deploy.py

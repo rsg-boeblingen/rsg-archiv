@@ -301,7 +301,7 @@ def detailseite(b):
                    '<button type="button" class="vor" aria-label="Nächstes Bild">›</button></dialog>')
     links = []
     if "wordpress" in b["quelle"]:
-        links.append(f'<a class="knopf" href="{E(b["original_url"])}" rel="noopener">Originalbeitrag (alte Website)</a>')
+        links.append(f'<a class="knopf" href="{E(b["original_url"])}" rel="noopener" target="_blank">Originalbeitrag (alte Website) ↗</a>')
     fb = b.get("facebook_url") or (b["original_url"] if b["quelle"] == ["facebook"] else "")
     if fb:
         links.append(f'<a class="knopf" href="{E(fb)}" rel="noopener" target="_blank">Auf Facebook ansehen ↗</a>')
