@@ -54,3 +54,16 @@ zusätzlich per SFTP löschen.
 `/.htpasswd-archiv` liegt im Webspace-Stamm (außerhalb von `/new`) und wird nur
 per SFTP gepflegt, nie im Repo. Zum Freischalten für alle: die Zeilen
 `AuthType` … `Require valid-user` aus `site/.htaccess` entfernen.
+
+## Pflege
+
+| Wann | Was |
+| --- | --- |
+| alle paar Monate | Neue Facebook-Posts übernehmen: `rsg_fb_sichern.py` → `rsg_archiv_import.py` → `rsg_archiv_seiten.py` → rsync → push (siehe „Archiv neu bauen“), dann die neuen Bilder per SFTP nach `/new/archiv/bilder` hochladen |
+| bei Löschwunsch | ID in `sperrliste.txt`, neu bauen, pushen, Seite und Bilder auf dem Server per SFTP löschen (siehe oben) |
+| neue Feedback-Person | `htpasswd -B ~/rsg-archiv-import/.htpasswd-archiv NAME` (ohne `-c`!) und die Datei per SFTP nach `/.htpasswd-archiv` hochladen |
+| wenn `style.css?v=N` in `rsg-web` erhöht wird | `CSS_VERSION` in `scripts/rsg_archiv_seiten.py` anpassen und neu bauen |
+| regelmäßig | `~/rsg-archiv-import/` sichern (Time Machine / externe Platte) – einzige Kopie der Quelldaten |
+
+Vor dem Abschalten von alt.rsg-boeblingen.de den Import einmal laufen lassen, damit
+`wordpress/ngg_zuordnung.json` (Zuordnung der NextGEN-Galeriebilder) angelegt ist.
