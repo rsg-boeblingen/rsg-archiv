@@ -266,9 +266,13 @@ def lade_wordpress(basis, bericht):
 
 
 def ngg_bilder_von_seite(url, gallery_dir, cache):
-    """NextGEN: Bild-URLs aus der live gerenderten alten Seite holen und lokal zuordnen."""
+    """NextGEN: Bild-URLs aus der live gerenderten alten Seite holen und lokal zuordnen.
+
+    Erfolgreiche Zuordnungen landen in cache (relativ zu gallery_dir) und werden in
+    wordpress/ngg_zuordnung.json gespeichert – so funktioniert ein Neubau auch noch,
+    wenn die alte Seite abgeschaltet ist."""
     if url in cache:
-        return cache[url]
+        return [os.path.join(gallery_dir, r) for r in cache[url]]
     pfade = []
     try:
         seite = http_get(url)
@@ -284,7 +288,8 @@ def ngg_bilder_von_seite(url, gallery_dir, cache):
                 pfade.append(kandidat)
     except Exception as e:
         log(f"  Hinweis: NextGEN-Bilder für {url} nicht abrufbar ({e})")
-    cache[url] = pfade
+        return pfade          # Fehlschlag nicht speichern – beim nächsten Lauf erneut versuchen
+    cache[url] = [os.path.relpath(p, gallery_dir) for p in pfade]
     return pfade
 
 
@@ -419,7 +424,13 @@ def main():
     werk = Bildwerk(ziel, not args.ohne_bilder)
     uploads = os.path.join(basis, "wordpress", "uploads")
     gallery = os.path.join(basis, "wordpress", "gallery")
-    ngg_cache, fehlend, gesperrte_bilder = {}, [], 0
+    ngg_datei = os.path.join(basis, "wordpress", "ngg_zuordnung.json")
+    try:
+        with open(ngg_datei, encoding="utf-8") as f:
+            ngg_cache = json.load(f)
+    except (OSError, ValueError):
+        ngg_cache = {}
+    fehlend, gesperrte_bilder = [], 0
     for b in alle:
         quellen = []  # (absoluter Pfad, Beschreibung)
         for k in b.pop("_kandidaten"):
@@ -458,6 +469,10 @@ def main():
                 info["beschreibung"] = beschr or f"{b['titel']} ({b['datum'][8:10]}.{b['datum'][5:7]}.{b['datum'][:4]})"
                 bilder.append(info)
         b["bilder"] = bilder
+
+    if ngg_cache:
+        with open(ngg_datei, "w", encoding="utf-8") as f:
+            json.dump(ngg_cache, f, ensure_ascii=False, indent=1)
 
     alle.sort(key=lambda b: b["datum"], reverse=True)
     reihenfolge = ["id", "quelle", "datum", "titel", "text", "bilder", "sparte", "schlagworte",
