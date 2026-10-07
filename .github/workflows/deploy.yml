@@ -2,6 +2,7 @@ name: Deploy Archiv to IONOS
 
 # Lädt den Inhalt von site/ nach rsg-boeblingen.de/archiv/ (IONOS-Pfad /new/archiv).
 # Die Bilder liegen NICHT im Repo – sie werden einmalig per SFTP nach /new/archiv/bilder hochgeladen.
+# Der Ordner /new/archiv muss auf dem Server existieren (einmalig per SFTP: mkdir /new/archiv).
 on:
   push:
     branches: [main]
@@ -32,7 +33,9 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           sftp_only: true
           local_path: ./site/.htaccess
-          remote_path: ${{ env.REMOTE_DIR }}
+          # voller Zielpfad: existiert /new/archiv nicht als Ordner, schlägt der Schritt fehl,
+          # statt eine Datei namens "archiv" anzulegen (so geschehen beim ersten Deploy)
+          remote_path: ${{ env.REMOTE_DIR }}/.htaccess
 
       - name: SFTP Deploy Inhalte
         # erst wenn gebaute Seiten im Repo liegen (sonst findet ./site/* nichts)
