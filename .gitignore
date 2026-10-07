@@ -1,0 +1,9 @@
+# Bilder werden einmalig per SFTP hochgeladen, nicht versioniert
+site/bilder/
+# Arbeitsdateien des Imports
+site/_*
+site/archiv.json
+site/bericht.txt
+site/robots.txt
+.DS_Store
+__pycache__/

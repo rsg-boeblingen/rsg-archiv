@@ -1,0 +1,14 @@
+# Archiv-Vorschau: Passwortschutz (HTTP Basic Auth).
+# Die Passwortdatei liegt NICHT im Repo, sondern einmalig per SFTP hochgeladen
+# im Webspace-Stamm (htdocs), außerhalb des Web-Ordners /new.
+AuthType Basic
+AuthName "RSG Archiv – Vorschau"
+AuthUserFile /homepages/42/d115502871/htdocs/.htpasswd-archiv
+Require valid-user
+
+# Nicht von Suchmaschinen erfassen (zusätzlich zu <meta name="robots">)
+<IfModule mod_headers.c>
+  Header set X-Robots-Tag "noindex, nofollow"
+</IfModule>
+
+DirectoryIndex index.html

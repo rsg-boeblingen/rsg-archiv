@@ -1,0 +1,46 @@
+name: Deploy Archiv to IONOS
+
+# Lädt den Inhalt von site/ nach rsg-boeblingen.de/archiv/ (IONOS-Pfad /new/archiv).
+# Die Bilder liegen NICHT im Repo – sie werden einmalig per SFTP nach /new/archiv/bilder hochgeladen.
+on:
+  push:
+    branches: [main]
+    paths: ['site/**', '.github/workflows/deploy.yml']
+  workflow_dispatch:
+
+env:
+  REMOTE_DIR: /new/archiv
+
+concurrency:
+  group: deploy-archiv
+  cancel-in-progress: false
+
+jobs:
+  sftp-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Reihenfolge wichtig: zuerst .htaccess (Passwortschutz), dann die Inhalte –
+      # so ist das Archiv beim ersten Deploy zu keinem Zeitpunkt ungeschützt.
+      - name: SFTP Deploy .htaccess (Passwortschutz)
+        uses: wlixcc/SFTP-Deploy-Action@v1.2.6
+        with:
+          server: home115502871.1and1-data.host
+          port: 22
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          sftp_only: true
+          local_path: ./site/.htaccess
+          remote_path: ${{ env.REMOTE_DIR }}
+
+      - name: SFTP Deploy Inhalte
+        uses: wlixcc/SFTP-Deploy-Action@v1.2.6
+        with:
+          server: home115502871.1and1-data.host
+          port: 22
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          sftp_only: true
+          local_path: ./site/*
+          remote_path: ${{ env.REMOTE_DIR }}
