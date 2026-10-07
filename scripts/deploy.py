@@ -36,11 +36,12 @@ def ist_commit(sha):
                           capture_output=True).returncode == 0
 
 
-def sftp_befehl():
+def sftp_befehl(batchdatei):
+    """sftp-Aufruf; alle Optionen (auch -b) müssen VOR der Zieladresse stehen."""
     if os.environ.get("SFTP_BEFEHL"):
-        return shlex.split(os.environ["SFTP_BEFEHL"])
+        return [*shlex.split(os.environ["SFTP_BEFEHL"]), "-b", batchdatei, "ziel"]
     return ["sshpass", "-e", "sftp", "-oStrictHostKeyChecking=accept-new", "-oBatchMode=no",
-            "-P", "22", f"{os.environ['SFTP_USER']}@{os.environ['SFTP_HOST']}"]
+            "-P", "22", "-b", batchdatei, f"{os.environ['SFTP_USER']}@{os.environ['SFTP_HOST']}"]
 
 
 def sftp_batch(zeilen, pruefen=True):
@@ -48,7 +49,7 @@ def sftp_batch(zeilen, pruefen=True):
     with tempfile.NamedTemporaryFile("w", suffix=".batch", delete=False) as f:
         f.write("\n".join(zeilen) + "\n")
         name = f.name
-    r = subprocess.run([*sftp_befehl(), "-b", name], capture_output=True, text=True)
+    r = subprocess.run(sftp_befehl(name), capture_output=True, text=True)
     os.unlink(name)
     if pruefen and r.returncode != 0:
         print(r.stdout[-3000:])
@@ -74,7 +75,9 @@ def main():
     if not probe:
         with tempfile.TemporaryDirectory() as tmp:
             ziel = os.path.join(tmp, "sha")
-            sftp_batch([f"-get {q(REMOTE + '/.deploy-sha')} {q(ziel)}"], pruefen=False)
+            r = sftp_batch([f"-get {q(REMOTE + '/.deploy-sha')} {q(ziel)}"], pruefen=False)
+            if r.returncode != 0:
+                sys.exit(f"SFTP-Verbindung fehlgeschlagen (Exit {r.returncode}):\n{r.stderr[-1500:]}")
             if os.path.exists(ziel):
                 alt = open(ziel).read().strip()
 
