@@ -27,13 +27,15 @@ Das Archiv funktioniert deshalb nur unter derselben Domain.
 ## Archiv neu bauen (lokal)
 
 ```
-python3 ~/webdev/rsg-archiv/scripts/rsg_archiv_import.py     # Quellen → archiv.json + Bilder
-python3 ~/webdev/rsg-archiv/scripts/rsg_archiv_seiten.py     # Seiten + Suchindex
-rsync -a --delete --exclude bilder --exclude '_*' --exclude archiv.json \
-      --exclude bericht.txt --exclude robots.txt --exclude .htaccess \
-      ~/rsg-archiv-import/archiv/ ~/webdev/rsg-archiv/site/
-cd ~/webdev/rsg-archiv && git add -A site && git commit -m "Archiv aktualisiert" && git push
+cd ~/webdev/rsg-archiv && git pull
+python3 scripts/rsg_archiv_import.py                          # Quellen → archiv.json + Bilder
+python3 scripts/rsg_archiv_seiten.py --repo ~/webdev/rsg-archiv   # Seiten + Suchindex, direkt nach site/
+git add -A site && git commit -m "Archiv aktualisiert" && git push
 ```
+
+`--repo` kopiert die fertigen Seiten nach `site/` und entfernt dort alles, was nicht
+dazugehört (außer `.htaccess`). Ohne `--repo` wird nur lokal unter
+`~/rsg-archiv-import/archiv/` gebaut (Vorschau).
 
 Neue oder geänderte Bilder anschließend per SFTP nach `/new/archiv/bilder` hochladen.
 
@@ -58,7 +60,7 @@ per SFTP gepflegt, nie im Repo. Zum Freischalten für alle: die Zeilen
 
 | Wann | Was |
 | --- | --- |
-| alle paar Monate | Neue Facebook-Posts übernehmen: `rsg_fb_sichern.py` → `rsg_archiv_import.py` → `rsg_archiv_seiten.py` → rsync → push (siehe „Archiv neu bauen“), dann die neuen Bilder per SFTP nach `/new/archiv/bilder` hochladen |
+| alle paar Monate | Neue Facebook-Posts übernehmen: `rsg_fb_sichern.py` → `rsg_archiv_import.py` → `rsg_archiv_seiten.py --repo …` → push (siehe „Archiv neu bauen“), dann die neuen Bilder per SFTP nach `/new/archiv/bilder` hochladen |
 | bei Löschwunsch | ID in `sperrliste.txt`, neu bauen, pushen; Bilder auf dem Server per SFTP löschen (siehe oben) |
 | neue Feedback-Person | `htpasswd -B ~/rsg-archiv-import/.htpasswd-archiv NAME` (ohne `-c`!) und die Datei per SFTP nach `/.htpasswd-archiv` hochladen |
 | wenn `style.css?v=N` in `rsg-web` erhöht wird | `CSS_VERSION` in `scripts/rsg_archiv_seiten.py` anpassen und neu bauen |

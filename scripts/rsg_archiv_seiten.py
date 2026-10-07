@@ -353,9 +353,38 @@ def indexseite(anzahl, von, bis):
 """)
 
 
+VEROEFFENTLICHT = ["index.html", "archiv.css", "archiv.js", "b", "pagefind"]
+
+
+def ins_repo(ziel, repo):
+    """Kopiert die fertigen Seiten nach <repo>/site/ und entfernt dort alles andere
+    (außer .htaccess) – ersetzt den fehleranfälligen rsync-Befehl."""
+    site = os.path.join(os.path.abspath(os.path.expanduser(repo)), "site")
+    if not os.path.isfile(os.path.join(site, ".htaccess")):
+        sys.exit(f"{site}/.htaccess nicht gefunden – ist {repo} wirklich das Repo rsg-archiv?")
+    entfernt = 0
+    for name in os.listdir(site):
+        if name == ".htaccess" or name in VEROEFFENTLICHT:
+            continue
+        pfad = os.path.join(site, name)          # Überbleibsel, z. B. site/archiv/ aus einem rsync-Versehen
+        shutil.rmtree(pfad) if os.path.isdir(pfad) else os.remove(pfad)
+        entfernt += 1
+    for name in VEROEFFENTLICHT:
+        quelle, dest = os.path.join(ziel, name), os.path.join(site, name)
+        if os.path.isdir(dest):
+            shutil.rmtree(dest)
+        if os.path.isdir(quelle):
+            shutil.copytree(quelle, dest)
+        else:
+            shutil.copy2(quelle, dest)
+    return site, entfernt
+
+
 def main():
     ap = argparse.ArgumentParser(description="Archiv-Seiten und Suchindex bauen")
     ap.add_argument("--basis", default=os.path.expanduser("~/rsg-archiv-import"))
+    ap.add_argument("--repo", metavar="PFAD",
+                    help="fertige Seiten zusätzlich nach PFAD/site/ kopieren (Repo rsg-archiv), z. B. ~/webdev/rsg-archiv")
     ap.add_argument("--hauptseite", default=HAUPTSEITE,
                     help="Adresse der Hauptseite für Header/Footer/CSS (Standard: %(default)s)")
     args = ap.parse_args()
@@ -406,8 +435,13 @@ def main():
     print(f"Detailseiten:        {len(beitraege)}")
     print(f"Suchindex:           {groesse / 1e6:.1f} MB in {pfdir}")
     print(f"Ordner:              {ziel}")
-    print("\nAnsehen:  python3 -m http.server 8000 --directory " + ziel)
-    print("          → http://localhost:8000  (iPad über Tailscale: http://<mac-name>:8000)")
+    if args.repo:
+        site, entfernt = ins_repo(ziel, args.repo)
+        print(f"Ins Repo kopiert:    {site}" + (f"  ({entfernt} Überbleibsel entfernt)" if entfernt else ""))
+        print("\nVeröffentlichen:  cd " + os.path.dirname(site) + " && git add -A site && git commit -m '…' && git push")
+    else:
+        print("\nAnsehen:  python3 -m http.server 8000 --directory " + ziel)
+        print("          → http://localhost:8000  (iPad über Tailscale: http://<mac-name>:8000)")
 
 
 if __name__ == "__main__":
