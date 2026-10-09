@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Archiv-Suche der RSG Böblingen (Triathlon). Statische Seiten + Pagefind-Suchindex,
+Vereinsarchiv der RSG Böblingen (Triathlon, Blindensport, Radsport, Verein). Statische Seiten + Pagefind-Suchindex,
 ausgeliefert unter https://rsg-boeblingen.de/archiv/ (IONOS-Pfad `/new/archiv`).
 Siehe README.md für Aufbau und Arbeitsablauf.
 

@@ -29,7 +29,7 @@ import subprocess
 import sys
 
 E = html.escape
-ARCHIV_VERSION = "2"   # bei Änderungen an archiv.css / archiv.js erhöhen
+ARCHIV_VERSION = "3"   # bei Änderungen an archiv.css / archiv.js erhöhen
 MONATE = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August",
           "September", "Oktober", "November", "Dezember"]
 QUELLE_NAME = {"wordpress": "Alte Website", "facebook": "Facebook"}
@@ -61,6 +61,7 @@ CSS = r"""
 .archiv mark{background:#fff0a8;color:inherit;padding:0 1px}
 .archiv .meta{font-size:.85rem;color:var(--rsg-text-muted);display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .archiv .badge{display:inline-block;font-size:.72rem;padding:1px 8px;border-radius:999px;background:var(--rsg-blue-alt);color:var(--rsg-blue-dark);font-weight:700}
+.archiv .badge.sparte{background:var(--rsg-blue-dark);color:#fff}
 .archiv .mehr{display:block;margin:20px auto 0}
 .archiv .hinweis{margin-top:40px;padding:14px 16px;border-left:4px solid var(--rsg-yellow);background:var(--rsg-blue-soft);font-size:.9rem;color:var(--rsg-text-muted)}
 .archiv .zurueck{display:inline-block;margin-bottom:8px;font-weight:700;color:var(--rsg-blue-dark)}
@@ -119,21 +120,25 @@ SUCHE_JS = r"""
   await pf.options({ baseUrl: base, excerptLength: 30 });
   pf.init();
   var $ = function(id){ return document.getElementById(id); };
-  var q=$('q'), fJahr=$('f-jahr'), fQuelle=$('f-quelle'), fWort=$('f-wort'), sort=$('sortierung');
+  var q=$('q'), fSparte=$('f-sparte'), fJahr=$('f-jahr'), fQuelle=$('f-quelle'), fWort=$('f-wort'), sort=$('sortierung');
+  var SPARTEN_REIHENFOLGE = ['Triathlon', 'Blindensport', 'Radsport', 'Verein'];
   var liste=$('treffer'), status=$('status'), mehr=$('mehr');
   var alle=[], gezeigt=0, lauf=0, PRO_SEITE=20;
 
   // Filterlisten aus dem Index füllen
   var filters = await pf.filters();
-  function fuelle(sel, werte, absteigend){
-    Object.keys(werte||{}).sort(function(a,b){ return absteigend ? b.localeCompare(a) : a.localeCompare(b,'de'); })
+  function fuelle(sel, werte, absteigend, reihenfolge){
+    Object.keys(werte||{}).sort(function(a,b){
+        if (reihenfolge) return (reihenfolge.indexOf(a)+99*(reihenfolge.indexOf(a)<0)) - (reihenfolge.indexOf(b)+99*(reihenfolge.indexOf(b)<0));
+        return absteigend ? b.localeCompare(a) : a.localeCompare(b,'de'); })
       .forEach(function(w){ var o=document.createElement('option'); o.value=w; o.textContent=w+' ('+werte[w]+')'; sel.appendChild(o); });
   }
+  fuelle(fSparte, filters.sparte, false, SPARTEN_REIHENFOLGE);
   fuelle(fJahr, filters.jahr, true); fuelle(fQuelle, filters.quelle); fuelle(fWort, filters.schlagwort);
 
   // Zustand <-> URL (teilbare Suchen)
   var p = new URLSearchParams(location.search);
-  q.value = p.get('q')||''; fJahr.value = p.get('jahr')||''; fQuelle.value = p.get('quelle')||'';
+  q.value = p.get('q')||''; fSparte.value = p.get('sparte')||''; fJahr.value = p.get('jahr')||''; fQuelle.value = p.get('quelle')||'';
   fWort.value = p.get('schlagwort')||''; sort.value = p.get('sort')||'';
 
   function karte(d){
@@ -141,8 +146,9 @@ SUCHE_JS = r"""
     a.className='karte'; a.href=d.url;
     // nur eigene Archivbilder: ohne Beitragsbild greift Pagefind sonst auf das Logo der Seite zurück
     var bild = (d.meta.image||'').indexOf('bilder/') === 0 ? '<img src="'+base+d.meta.image+'" alt="" loading="lazy">' : '<div class="ohnebild" aria-hidden="true">kein Bild</div>';
+    var sparten = (d.filters.sparte||[]).map(function(x){ return '<span class="badge sparte">'+x+'</span>'; }).join(' ');
     var quellen = (d.filters.quelle||[]).map(function(x){ return '<span class="badge'+(x==='Facebook'?' fb':'')+'">'+x+'</span>'; }).join(' ');
-    a.innerHTML = bild + '<div><div class="meta"><time>'+(d.meta.datum_text||'')+'</time>'+quellen+'</div>'
+    a.innerHTML = bild + '<div><div class="meta"><time>'+(d.meta.datum_text||'')+'</time>'+sparten+' '+quellen+'</div>'
       + '<h2>'+(d.meta.title||'')+'</h2><p>'+(d.excerpt||'')+'</p></div>';
     li.appendChild(a); return li;
   }
@@ -156,6 +162,7 @@ SUCHE_JS = r"""
   async function suche(){
     var meinLauf = ++lauf;
     var filter = {};
+    if (fSparte.value) filter.sparte = fSparte.value;
     if (fJahr.value) filter.jahr = fJahr.value;
     if (fQuelle.value) filter.quelle = fQuelle.value;
     if (fWort.value) filter.schlagwort = fWort.value;
@@ -169,14 +176,15 @@ SUCHE_JS = r"""
     status.textContent = alle.length === 1 ? '1 Beitrag gefunden' : alle.length + ' Beiträge gefunden';
     await zeigeMehr();
     var u = new URLSearchParams();
-    if (begriff) u.set('q', begriff); if (fJahr.value) u.set('jahr', fJahr.value);
+    if (begriff) u.set('q', begriff); if (fSparte.value) u.set('sparte', fSparte.value);
+    if (fJahr.value) u.set('jahr', fJahr.value);
     if (fQuelle.value) u.set('quelle', fQuelle.value); if (fWort.value) u.set('schlagwort', fWort.value);
     if (sort.value) u.set('sort', sort.value);
     history.replaceState(null, '', u.toString() ? '?' + u.toString() : location.pathname);
   }
   q.addEventListener('input', suche);
-  [fJahr, fQuelle, fWort, sort].forEach(function(s){ s.addEventListener('change', suche); });
-  $('zuruecksetzen').addEventListener('click', function(){ q.value=''; fJahr.value=''; fQuelle.value=''; fWort.value=''; sort.value=''; suche(); q.focus(); });
+  [fSparte, fJahr, fQuelle, fWort, sort].forEach(function(s){ s.addEventListener('change', suche); });
+  $('zuruecksetzen').addEventListener('click', function(){ q.value=''; fSparte.value=''; fJahr.value=''; fQuelle.value=''; fWort.value=''; sort.value=''; suche(); q.focus(); });
   mehr.addEventListener('click', zeigeMehr);
   suche();
 })().catch(function(e){
@@ -258,7 +266,7 @@ def fuss(tiefe):
       </div>
       <div>
         <h4>Archiv</h4>
-        <p>Frühere Beiträge der alten Vereinswebsite und der Facebook-Seite „RSG Böblingen Triathlon Team“.</p>
+        <p>Frühere Beiträge aller Sparten von der alten Vereinswebsite und der Facebook-Seite „RSG Böblingen Triathlon Team“.</p>
         <p>Sie möchten einen Beitrag oder ein Foto entfernen lassen? Eine kurze Nachricht an vorstand (at) rsg-boeblingen.de genügt.</p>
       </div>
     </div>
@@ -283,7 +291,9 @@ def detailseite(b):
                        if a.strip() and a.strip() not in ("•", "·"))
     b["schlagworte"] = [w for w in b["schlagworte"] if not re.fullmatch(r"\d{4}", w)]
     erstes = b["bilder"][0]["klein"] if b["bilder"] else ""
-    filter_spans = [f'<span data-pagefind-filter="jahr:{b["datum"][:4]}"></span>']
+    sparten = b.get("sparten") or [b.get("sparte", "Triathlon")]
+    filter_spans = [f'<span data-pagefind-filter="sparte:{E(sp)}"></span>' for sp in sparten]
+    filter_spans += [f'<span data-pagefind-filter="jahr:{b["datum"][:4]}"></span>']
     filter_spans += [f'<span data-pagefind-filter="quelle:{E(q)}"></span>' for q in quellen]
     filter_spans += [f'<span data-pagefind-filter="schlagwort:{E(s.replace(",", " "))}"></span>' for s in b["schlagworte"]]
     chips = "".join(f'<a href="../index.html?schlagwort={E(s)}">{E(s)}</a>' for s in b["schlagworte"])
@@ -309,7 +319,7 @@ def detailseite(b):
             f"""<main id="inhalt" class="archiv"><div class="container">
 <a class="zurueck" href="../index.html" onclick="if(document.referrer.indexOf(location.host)>-1&&history.length>1){{history.back();return false}}">← Zur Suche</a>
 <article data-pagefind-body>
-<div class="meta" data-pagefind-ignore><time datetime="{b['datum']}">{datum}</time> {' '.join(f'<span class="badge">{E(q)}</span>' for q in quellen)}</div>
+<div class="meta" data-pagefind-ignore><time datetime="{b['datum']}">{datum}</time> {' '.join(f'<span class="badge sparte">{E(sp)}</span>' for sp in sparten)} {' '.join(f'<span class="badge">{E(q)}</span>' for q in quellen)}</div>
 <h1 data-pagefind-meta="title">{E(titel)}</h1>
 <span hidden data-pagefind-meta="datum_text:{datum}"></span>
 <span hidden data-pagefind-sort="datum:{b['datum']}"></span>
@@ -326,16 +336,17 @@ def detailseite(b):
 
 
 def indexseite(anzahl, von, bis):
-    return (kopf("Suche", 0, "Durchsuchbares Archiv der Triathlon-Beiträge der RSG Böblingen") +
+    return (kopf("Suche", 0, "Durchsuchbares Vereinsarchiv der RSG Böblingen: Triathlon, Blindensport, Radsport und Verein") +
             f"""<main id="inhalt" class="archiv"><div class="container">
-<h1>Archiv Triathlon</h1>
-<p class="lead">{anzahl} Berichte, Fotos und Meldungen aus {von}–{bis}. Suche nach Namen, Wettkämpfen, Orten oder Stichworten.</p>
+<h1>Vereinsarchiv</h1>
+<p class="lead">{anzahl} Berichte, Fotos und Meldungen aus {von}–{bis} – Triathlon, Blindensport, Radsport und Vereinsleben. Suche nach Namen, Wettkämpfen, Touren, Orten oder Stichworten.</p>
 <div class="suche" role="search">
   <div class="suchzeile">
     <label for="q" class="unsichtbar">Suchbegriff</label>
-    <input id="q" type="search" placeholder="z. B. Roth, Ironman, Mallorca …" autocomplete="off" autofocus>
+    <input id="q" type="search" placeholder="z. B. Roth, Tandem, Radtreff, Mallorca …" autocomplete="off" autofocus>
   </div>
   <div class="filter">
+    <label>Sparte<select id="f-sparte"><option value="">alle Sparten</option></select></label>
     <label>Jahr<select id="f-jahr"><option value="">alle Jahre</option></select></label>
     <label>Quelle<select id="f-quelle"><option value="">alle Quellen</option></select></label>
     <label>Schlagwort<select id="f-wort"><option value="">alle Schlagworte</option></select></label>
