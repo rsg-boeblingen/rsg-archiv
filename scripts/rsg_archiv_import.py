@@ -52,15 +52,30 @@ NS = {"wp": "http://wordpress.org/export/1.2/",
       "excerpt": "http://wordpress.org/export/1.2/excerpt/",
       "dc": "http://purl.org/dc/elements/1.1/"}
 
-SPARTE = "Triathlon"
-WP_KATEGORIEN = {"Triathlon"}                 # WordPress-Kategorie(n) für die Sparte
-WP_TAGS = {"Triathlon", "Triathlon-Team"}      # … oder einer dieser Tags
+# Sparten: ein WordPress-Beitrag gehört zu jeder Sparte, deren Kategorie ODER Tag er trägt
+# (auch zu mehreren, z. B. Tandem-Ausfahrten). Passt keine, ist er ein Vereinsbeitrag.
+SPARTEN = {
+    "Triathlon":    ({"Triathlon"},
+                     {"Triathlon", "Triathlon-Team"}),
+    "Blindensport": ({"Blindensport", "Indoorcycling BSA", "Tandem-Bahntraining", "Wanderungen", "Ausflüge"},
+                     {"Blindensport", "BSA", "Tandem", "Tandemgruppe", "blinden", "Sehbehinderten",
+                      "Indoorcycling", "Spinning"}),
+    "Radsport":     ({"Radtreff", "Touren", "Bahnradsport", "RTF und Radmarathon", "Rennsport", "Mountainbike"},
+                     {"Radtreff", "Rennrad", "Rad-Tour", "RTF", "Radmarathon", "Bahnrad", "Bahnradsport"}),
+}
+SPARTE_REST = "Verein"
+SPARTE_FACEBOOK = "Triathlon"                    # Facebook-Seite „RSG Böblingen Triathlon Team“
+# Nicht ins Archiv (Vorstandsbeschluss 9.10.2026): Vorstandsprotokolle und Nachrufe
+AUSSCHLUSS_KATEGORIEN = {"Protokolle"}
+AUSSCHLUSS_TITEL = re.compile(r"(?i)^protokoll\b|\btrauer um\b|\bverstorben\b|\bnachruf\b")
 # Kategorien/Tags ohne Aussagekraft als Schlagwort
 GENERISCH = {"Featured", "Sonstiges", "Archiv", "Aktuelles", "Allgemein", "Uncategorized",
              "Besonderes", "Fragen", "Jahr 2012", "2013", "2014", "2015", "Sonntag"}
 # Wörter, die zwar WP-Tags sind, aber in fast jedem Triathlon-Post vorkommen -> nicht automatisch vergeben
 NICHT_AUTOMATISCH = {"Laufen", "Training", "Verein", "Wettbewerb", "Wettkampf", "Winter",
-                     "Triathlon-Team", "Radfahren", "Schwimmen"}
+                     "Triathlon-Team", "Radfahren", "radfahren", "Schwimmen", "Presse", "Böblingen",
+                     "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag",
+                     "abschluss", "Frühjahr"}
 GROSS, KLEIN, QUALITAET = 1600, 400, 80
 MERGE_TAGE, MERGE_AEHNLICHKEIT = 7, 0.55
 BILD_EXT = (".jpg", ".jpeg", ".png", ".gif", ".webp")
@@ -216,8 +231,11 @@ def lade_wordpress(basis, bericht):
             continue
         kats = [c.text for c in i.findall("category") if c.get("domain") == "category" and c.text]
         tags = [c.text for c in i.findall("category") if c.get("domain") == "post_tag" and c.text]
-        if not (WP_KATEGORIEN & set(kats) or WP_TAGS & set(tags)):
+        titel = html.unescape(t(i, "title")).strip()
+        if AUSSCHLUSS_KATEGORIEN & set(kats) or AUSSCHLUSS_TITEL.search(titel):
+            bericht.setdefault("ausgeschlossen", []).append(f"wp-{t(i, 'wp:post_id')} ({t(i, 'wp:post_date')[:10]}) {titel}")
             continue
+        sparten = [name for name, (k, tg) in SPARTEN.items() if k & set(kats) or tg & set(tags)] or [SPARTE_REST]
         roh = t(i, "content:encoded")
         meta = {m.findtext("wp:meta_key", namespaces=NS): m.findtext("wp:meta_value", namespaces=NS)
                 for m in i.findall("wp:postmeta", NS)}
@@ -247,21 +265,24 @@ def lade_wordpress(basis, bericht):
             kandidaten.append(("ngg_seite", t(i, "link")))
 
         schlagworte = sorted({x for x in kats + tags
-                              if x not in GENERISCH and x != SPARTE and not re.fullmatch(r"\d{4}", x)})
+                              if x not in GENERISCH and x not in SPARTEN and x != SPARTE_REST
+                              and not re.fullmatch(r"\d{4}", x)})
         beitraege.append({
             "id": f"wp-{t(i, 'wp:post_id')}",
             "quelle": ["wordpress"],
             "datum": t(i, "wp:post_date")[:10],
-            "titel": html.unescape(t(i, "title")).strip(),
+            "titel": titel,
             "text": text_aus_html(text_roh),
-            "sparte": SPARTE,
+            "sparten": sparten,
             "schlagworte": schlagworte,
             "original_url": t(i, "link"),
             "_kandidaten": kandidaten,
             "_captions": captions,
         })
     bericht["wp_beitraege"] = len(beitraege)
-    log(f"  {len(beitraege)} Triathlon-Beiträge gefunden.")
+    proSparte = Counter(sp for b in beitraege for sp in b["sparten"])
+    log(f"  {len(beitraege)} Beiträge: " + ", ".join(f"{k} {v}" for k, v in proSparte.most_common())
+        + f"; {len(bericht.get('ausgeschlossen', []))} ausgeschlossen (Protokolle/Nachrufe)")
     return beitraege
 
 
@@ -324,7 +345,7 @@ def lade_facebook(basis, bericht):
             "datum": datum,
             "titel": titel_aus_text(text, datum),
             "text": text,
-            "sparte": SPARTE,          # Seite „RSG Böblingen Triathlon Team“
+            "sparten": [SPARTE_FACEBOOK],
             "schlagworte": [],
             "original_url": p.get("permalink_url", ""),
             "_kandidaten": [("fb", os.path.join(basis, "facebook", b["datei"]), b.get("beschreibung", ""))
@@ -367,6 +388,8 @@ def zusammenfuehren(wp, fb, bericht):
                 ziel, grund = best[1], f"Textähnlichkeit {best[0]:.2f}"
         if ziel:
             ziel["quelle"] = sorted(set(ziel["quelle"]) | {"facebook"})
+            ziel["sparten"] = [s for s in list(SPARTEN) + [SPARTE_REST]
+                               if s in set(ziel["sparten"]) | set(f["sparten"])]
             ziel.setdefault("facebook_url", f["original_url"])
             if not ziel["_kandidaten"]:      # FB-Fotos nur, wenn der WP-Beitrag selbst keine hat
                 ziel["_kandidaten"] += f["_kandidaten"]
@@ -475,10 +498,11 @@ def main():
             json.dump(ngg_cache, f, ensure_ascii=False, indent=1)
 
     alle.sort(key=lambda b: b["datum"], reverse=True)
-    reihenfolge = ["id", "quelle", "datum", "titel", "text", "bilder", "sparte", "schlagworte",
+    reihenfolge = ["id", "quelle", "datum", "titel", "text", "bilder", "sparten", "schlagworte",
                    "original_url", "facebook_url"]
     alle = [{k: b[k] for k in reihenfolge if k in b} for b in alle]
-    meta = {"erstellt": datetime.now().isoformat(timespec="seconds"), "sparte": SPARTE,
+    meta = {"erstellt": datetime.now().isoformat(timespec="seconds"),
+            "sparten": list(SPARTEN) + [SPARTE_REST],
             "anzahl": len(alle), "bilder_konvertiert": not args.ohne_bilder}
     with open(os.path.join(ziel, "archiv.json"), "w", encoding="utf-8") as f:
         json.dump({"meta": meta, "beitraege": alle}, f, ensure_ascii=False, indent=1)
@@ -487,7 +511,7 @@ def main():
     n_bilder = sum(len(b["bilder"]) for b in alle)
     jahre = Counter(b["datum"][:4] for b in alle)
     zeilen = [
-        f"RSG-Archiv-Import {meta['erstellt']} – Sparte {SPARTE}",
+        f"RSG-Archiv-Import {meta['erstellt']} – alle Sparten",
         "",
         f"Beiträge im Archiv:      {len(alle)}",
         f"  aus WordPress:         {bericht['wp_beitraege']}",
@@ -495,13 +519,16 @@ def main():
         f"  FB ohne Text/Bild:     {bericht['fb_leer']} übersprungen",
         f"  gesperrt:              {len(gesperrt)} Beiträge, {gesperrte_bilder} Bilder",
         f"Zeitraum:                {alle[-1]['datum']} bis {alle[0]['datum']}" if alle else "",
+        "Pro Sparte:              " + ", ".join(f"{k}: {v}" for k, v in
+                                                Counter(s for b in alle for s in b["sparten"]).most_common()),
         "Pro Jahr:                " + ", ".join(f"{j}: {n}" for j, n in sorted(jahre.items())),
         f"Ohne Bild:               {sum(1 for b in alle if not b['bilder'])}",
         f"Bilder:                  {n_bilder} (neu konvertiert {werk.neu}, vorhanden {werk.vorhanden}, Fehler {len(werk.fehler)})",
         f"Fehlende Bilddateien:    {len(fehlend)}",
         f"FB verschlagwortet:      {bericht['fb_verschlagwortet']} Posts (Vokabular {bericht['vokabular']} Schlagworte)",
         "",
-        "== Zusammengeführt (bitte stichprobenartig prüfen) ==", *bericht["zusammengefuehrt"],
+        "== Ausgeschlossen (Protokolle, Nachrufe) ==", *bericht.get("ausgeschlossen", []),
+        "", "== Zusammengeführt (bitte stichprobenartig prüfen) ==", *bericht["zusammengefuehrt"],
         "", "== Fehlende Bilddateien ==", *fehlend,
         "", "== Bildfehler ==", *werk.fehler,
     ]
@@ -509,7 +536,7 @@ def main():
         f.write("\n".join(zeilen) + "\n")
 
     log("\n================ ERGEBNIS ================")
-    for z in zeilen[2:13]:
+    for z in zeilen[2:14]:
         log(z)
     log(f"\nAusgabe: {ziel}  (Details in bericht.txt)")
     log("Bitte diese Ausgabe ab '==== ERGEBNIS ====' in den Chat kopieren.")

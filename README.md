@@ -1,9 +1,10 @@
-# RSG Böblingen – Archiv Triathlon
+# RSG Böblingen – Vereinsarchiv
 
-Durchsuchbares Archiv der früheren Triathlon-Beiträge der RSG Böblingen e.V.:
-die alte WordPress-Website (2007–2025) und die Facebook-Seite
-„RSG Böblingen Triathlon Team“ (2012–heute), zusammen rund 670 Beiträge mit
-rund 1.200 Fotos.
+Durchsuchbares Archiv früherer Beiträge der RSG Böblingen e.V. aus allen Sparten
+(Triathlon, Blindensport, Radsport, Verein): die alte WordPress-Website (2006–2025,
+eingefroren) und die Facebook-Seite „RSG Böblingen Triathlon Team“ (2012–heute,
+nur Triathlon). Rund 830 Beiträge. Nicht aufgenommen: Vorstandsprotokolle und
+Nachrufe (Beschluss 9.10.2026, Regeln in `rsg_archiv_import.py`).
 
 Live (passwortgeschützte Vorschau): https://rsg-boeblingen.de/archiv/
 
@@ -37,7 +38,11 @@ git add -A site && git commit -m "Archiv aktualisiert" && git push
 dazugehört (außer `.htaccess`). Ohne `--repo` wird nur lokal unter
 `~/rsg-archiv-import/archiv/` gebaut (Vorschau).
 
-Neue oder geänderte Bilder anschließend per SFTP nach `/new/archiv/bilder` hochladen.
+Neue Bilder anschließend hochladen – lädt nur die Ordner, die auf dem Server noch fehlen:
+
+```
+python3 scripts/rsg_bilder_hochladen.py --user DEIN_SFTP_USER
+```
 
 Voraussetzung: `pip3 install --user 'pagefind[extended]'`.
 
@@ -60,7 +65,7 @@ per SFTP gepflegt, nie im Repo. Zum Freischalten für alle: die Zeilen
 
 | Wann | Was |
 | --- | --- |
-| alle paar Monate | Neue Facebook-Posts übernehmen: `rsg_fb_sichern.py` → `rsg_archiv_import.py` → `rsg_archiv_seiten.py --repo …` → push (siehe „Archiv neu bauen“), dann die neuen Bilder per SFTP nach `/new/archiv/bilder` hochladen |
+| alle paar Monate | Neue Facebook-Posts übernehmen: `rsg_fb_sichern.py` → `rsg_archiv_import.py` → `rsg_archiv_seiten.py --repo …` → push (siehe „Archiv neu bauen“), dann `rsg_bilder_hochladen.py` |
 | bei Löschwunsch | ID in `sperrliste.txt`, neu bauen, pushen; Bilder auf dem Server per SFTP löschen (siehe oben) |
 | neue Feedback-Person | `htpasswd -B ~/rsg-archiv-import/.htpasswd-archiv NAME` (ohne `-c`!) und die Datei per SFTP nach `/.htpasswd-archiv` hochladen |
 | wenn `style.css?v=N` in `rsg-web` erhöht wird | `CSS_VERSION` in `scripts/rsg_archiv_seiten.py` anpassen und neu bauen |
