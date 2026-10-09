@@ -24,6 +24,7 @@
 .archiv mark{background:#fff0a8;color:inherit;padding:0 1px}
 .archiv .meta{font-size:.85rem;color:var(--rsg-text-muted);display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .archiv .badge{display:inline-block;font-size:.72rem;padding:1px 8px;border-radius:999px;background:var(--rsg-blue-alt);color:var(--rsg-blue-dark);font-weight:700}
+.archiv .badge.sparte{background:var(--rsg-blue-dark);color:#fff}
 .archiv .mehr{display:block;margin:20px auto 0}
 .archiv .hinweis{margin-top:40px;padding:14px 16px;border-left:4px solid var(--rsg-yellow);background:var(--rsg-blue-soft);font-size:.9rem;color:var(--rsg-text-muted)}
 .archiv .zurueck{display:inline-block;margin-bottom:8px;font-weight:700;color:var(--rsg-blue-dark)}
