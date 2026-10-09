@@ -67,6 +67,10 @@ SPARTE_REST = "Verein"
 SPARTE_FACEBOOK = "Triathlon"                    # Facebook-Seite „RSG Böblingen Triathlon Team“
 # Nicht ins Archiv (Vorstandsbeschluss 9.10.2026): Vorstandsprotokolle und Nachrufe
 AUSSCHLUSS_KATEGORIEN = {"Protokolle"}
+# Facebook-Wochenpläne („Training diese Woche: Montag 17:30 …“) – kein Archivwert (Beschluss 9.10.2026)
+WOCHENPLAN = re.compile(r"(?i)^\s*(training(s)? ?(diese|nächste) woche|trainingswoche|training und termine|"
+                        r"termin-?übersicht|training (im|für|vom|mai|juni|juli|august|september|oktober|"
+                        r"november|dezember|januar|februar|märz|april)|trainingsplan)")
 AUSSCHLUSS_TITEL = re.compile(r"(?i)^protokoll\b|\btrauer um\b|\bverstorben\b|\bnachruf\b")
 # Kategorien/Tags ohne Aussagekraft als Schlagwort
 GENERISCH = {"Featured", "Sonstiges", "Archiv", "Aktuelles", "Allgemein", "Uncategorized",
@@ -77,7 +81,10 @@ NICHT_AUTOMATISCH = {"Laufen", "Training", "Verein", "Wettbewerb", "Wettkampf", 
                      "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag",
                      "abschluss", "Frühjahr"}
 GROSS, KLEIN, QUALITAET = 1600, 400, 80
-MERGE_TAGE, MERGE_AEHNLICHKEIT = 7, 0.55
+# Zusammenführen Facebook ↔ WordPress: Berichte wurden oft erst Tage/Wochen später auf
+# dem anderen Kanal gepostet. Ähnlich = Textanfang ähnlich ODER großer Teil der Wortfolgen gleich
+# (letzteres erkennt auch FB-Posts mit anderem Einstieg oder FB-"Nachträge" zu einem WP-Bericht).
+MERGE_TAGE, MERGE_AEHNLICHKEIT, MERGE_ENTHALTEN = 31, 0.55, 0.5
 BILD_EXT = (".jpg", ".jpeg", ".png", ".gif", ".webp")
 
 
@@ -322,12 +329,15 @@ def lade_facebook(basis, bericht):
     log("Facebook: lese posts.json …")
     with open(pfad, encoding="utf-8") as f:
         posts = json.load(f)["posts"]
-    beitraege, leer = [], 0
+    beitraege, leer, plaene = [], 0, 0
     for p in posts:
         text = (p.get("message") or "").strip()
         bilder = p.get("_bilder") or []
         if not text and not bilder:
             leer += 1
+            continue
+        if WOCHENPLAN.search(text[:80]):
+            plaene += 1
             continue
         links = []
         for a in (p.get("attachments") or {}).get("data", []):
@@ -354,7 +364,8 @@ def lade_facebook(basis, bericht):
         })
     bericht["fb_beitraege"] = len(beitraege)
     bericht["fb_leer"] = leer
-    log(f"  {len(beitraege)} Posts übernommen, {leer} ohne Text und Bild übersprungen.")
+    bericht["fb_wochenplaene"] = plaene
+    log(f"  {len(beitraege)} Posts übernommen, {leer} ohne Text und Bild, {plaene} Wochenpläne übersprungen.")
     return beitraege
 
 
@@ -362,6 +373,18 @@ def lade_facebook(basis, bericht):
 def slug(url):
     m = re.search(r"rsg-boeblingen\.de/(\d{4}/\d{2}/[^/?#]+)", url or "")
     return m.group(1).rstrip("/") if m else None
+
+
+def schindeln(text, k=5):
+    w = normtext(text).split()
+    return {" ".join(w[i:i + k]) for i in range(max(1, len(w) - k + 1))}
+
+
+def aehnlichkeit(a_text, a_sch, b_text, b_sch):
+    """max(Ähnlichkeit der Textanfänge, Anteil gemeinsamer 5-Wort-Folgen am kürzeren Text)."""
+    anfang = difflib.SequenceMatcher(None, a_text, b_text).ratio()
+    enthalten = len(a_sch & b_sch) / max(1, min(len(a_sch), len(b_sch)))
+    return max(anfang, enthalten), ("Textanfang" if anfang >= enthalten else "gemeinsame Passagen")
 
 
 def zusammenfuehren(wp, fb, bericht):
@@ -376,16 +399,19 @@ def zusammenfuehren(wp, fb, bericht):
                 break
         if not ziel and len(f["text"]) > 120:
             fd = datetime.strptime(f["datum"], "%Y-%m-%d")
-            ft = normtext(f["text"])[:600]
-            best = (0, None)
+            ft, fs = normtext(f["text"])[:600], schindeln(f["text"])
+            best = (0, None, "")
             for w in wp:
                 if abs((datetime.strptime(w["datum"], "%Y-%m-%d") - fd).days) > MERGE_TAGE:
                     continue
-                r = difflib.SequenceMatcher(None, ft, normtext(w["text"])[:600]).ratio()
+                if "_sch" not in w:
+                    w["_sch"], w["_anf"] = schindeln(w["text"]), normtext(w["text"])[:600]
+                r, art = aehnlichkeit(ft, fs, w["_anf"], w["_sch"])
                 if r > best[0]:
-                    best = (r, w)
-            if best[0] >= MERGE_AEHNLICHKEIT:
-                ziel, grund = best[1], f"Textähnlichkeit {best[0]:.2f}"
+                    best = (r, w, art)
+            if best[0] >= max(MERGE_AEHNLICHKEIT, MERGE_ENTHALTEN):
+                tage = abs((datetime.strptime(best[1]["datum"], "%Y-%m-%d") - fd).days)
+                ziel, grund = best[1], f"Textähnlichkeit {best[0]:.2f} ({best[2]}, {tage} Tage Abstand)"
         if ziel:
             ziel["quelle"] = sorted(set(ziel["quelle"]) | {"facebook"})
             ziel["sparten"] = [s for s in list(SPARTEN) + [SPARTE_REST]
@@ -397,6 +423,9 @@ def zusammenfuehren(wp, fb, bericht):
         else:
             behalten.append(f)
     bericht["zusammengefuehrt"] = merges
+    for w in wp:
+        w.pop("_sch", None)
+        w.pop("_anf", None)
     return wp + behalten
 
 
@@ -517,6 +546,7 @@ def main():
         f"  aus WordPress:         {bericht['wp_beitraege']}",
         f"  aus Facebook:          {bericht['fb_beitraege']} (davon {len(bericht['zusammengefuehrt'])} mit WP-Beitrag zusammengeführt)",
         f"  FB ohne Text/Bild:     {bericht['fb_leer']} übersprungen",
+        f"  FB-Wochenpläne:        {bericht['fb_wochenplaene']} übersprungen",
         f"  gesperrt:              {len(gesperrt)} Beiträge, {gesperrte_bilder} Bilder",
         f"Zeitraum:                {alle[-1]['datum']} bis {alle[0]['datum']}" if alle else "",
         "Pro Sparte:              " + ", ".join(f"{k}: {v}" for k, v in
@@ -536,7 +566,7 @@ def main():
         f.write("\n".join(zeilen) + "\n")
 
     log("\n================ ERGEBNIS ================")
-    for z in zeilen[2:14]:
+    for z in zeilen[2:15]:
         log(z)
     log(f"\nAusgabe: {ziel}  (Details in bericht.txt)")
     log("Bitte diese Ausgabe ab '==== ERGEBNIS ====' in den Chat kopieren.")
