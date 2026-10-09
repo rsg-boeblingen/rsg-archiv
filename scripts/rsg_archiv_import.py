@@ -77,7 +77,10 @@ NICHT_AUTOMATISCH = {"Laufen", "Training", "Verein", "Wettbewerb", "Wettkampf", 
                      "Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag",
                      "abschluss", "Frühjahr"}
 GROSS, KLEIN, QUALITAET = 1600, 400, 80
-MERGE_TAGE, MERGE_AEHNLICHKEIT = 7, 0.55
+# Zusammenführen Facebook ↔ WordPress: Berichte wurden oft erst Tage/Wochen später auf
+# dem anderen Kanal gepostet. Ähnlich = Textanfang ähnlich ODER großer Teil der Wortfolgen gleich
+# (letzteres erkennt auch FB-Posts mit anderem Einstieg oder FB-"Nachträge" zu einem WP-Bericht).
+MERGE_TAGE, MERGE_AEHNLICHKEIT, MERGE_ENTHALTEN = 31, 0.55, 0.5
 BILD_EXT = (".jpg", ".jpeg", ".png", ".gif", ".webp")
 
 
@@ -364,6 +367,18 @@ def slug(url):
     return m.group(1).rstrip("/") if m else None
 
 
+def schindeln(text, k=5):
+    w = normtext(text).split()
+    return {" ".join(w[i:i + k]) for i in range(max(1, len(w) - k + 1))}
+
+
+def aehnlichkeit(a_text, a_sch, b_text, b_sch):
+    """max(Ähnlichkeit der Textanfänge, Anteil gemeinsamer 5-Wort-Folgen am kürzeren Text)."""
+    anfang = difflib.SequenceMatcher(None, a_text, b_text).ratio()
+    enthalten = len(a_sch & b_sch) / max(1, min(len(a_sch), len(b_sch)))
+    return max(anfang, enthalten), ("Textanfang" if anfang >= enthalten else "gemeinsame Passagen")
+
+
 def zusammenfuehren(wp, fb, bericht):
     """Facebook-Posts, die einen WordPress-Beitrag teilen oder fast gleich lauten, an diesen hängen."""
     nach_slug = {slug(b["original_url"]): b for b in wp if slug(b["original_url"])}
@@ -376,16 +391,19 @@ def zusammenfuehren(wp, fb, bericht):
                 break
         if not ziel and len(f["text"]) > 120:
             fd = datetime.strptime(f["datum"], "%Y-%m-%d")
-            ft = normtext(f["text"])[:600]
-            best = (0, None)
+            ft, fs = normtext(f["text"])[:600], schindeln(f["text"])
+            best = (0, None, "")
             for w in wp:
                 if abs((datetime.strptime(w["datum"], "%Y-%m-%d") - fd).days) > MERGE_TAGE:
                     continue
-                r = difflib.SequenceMatcher(None, ft, normtext(w["text"])[:600]).ratio()
+                if "_sch" not in w:
+                    w["_sch"], w["_anf"] = schindeln(w["text"]), normtext(w["text"])[:600]
+                r, art = aehnlichkeit(ft, fs, w["_anf"], w["_sch"])
                 if r > best[0]:
-                    best = (r, w)
-            if best[0] >= MERGE_AEHNLICHKEIT:
-                ziel, grund = best[1], f"Textähnlichkeit {best[0]:.2f}"
+                    best = (r, w, art)
+            if best[0] >= max(MERGE_AEHNLICHKEIT, MERGE_ENTHALTEN):
+                tage = abs((datetime.strptime(best[1]["datum"], "%Y-%m-%d") - fd).days)
+                ziel, grund = best[1], f"Textähnlichkeit {best[0]:.2f} ({best[2]}, {tage} Tage Abstand)"
         if ziel:
             ziel["quelle"] = sorted(set(ziel["quelle"]) | {"facebook"})
             ziel["sparten"] = [s for s in list(SPARTEN) + [SPARTE_REST]
@@ -397,6 +415,9 @@ def zusammenfuehren(wp, fb, bericht):
         else:
             behalten.append(f)
     bericht["zusammengefuehrt"] = merges
+    for w in wp:
+        w.pop("_sch", None)
+        w.pop("_anf", None)
     return wp + behalten
 
 
