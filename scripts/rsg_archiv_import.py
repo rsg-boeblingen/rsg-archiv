@@ -67,6 +67,10 @@ SPARTE_REST = "Verein"
 SPARTE_FACEBOOK = "Triathlon"                    # Facebook-Seite „RSG Böblingen Triathlon Team“
 # Nicht ins Archiv (Vorstandsbeschluss 9.10.2026): Vorstandsprotokolle und Nachrufe
 AUSSCHLUSS_KATEGORIEN = {"Protokolle"}
+# Facebook-Wochenpläne („Training diese Woche: Montag 17:30 …“) – kein Archivwert (Beschluss 9.10.2026)
+WOCHENPLAN = re.compile(r"(?i)^\s*(training(s)? ?(diese|nächste) woche|trainingswoche|training und termine|"
+                        r"termin-?übersicht|training (im|für|vom|mai|juni|juli|august|september|oktober|"
+                        r"november|dezember|januar|februar|märz|april)|trainingsplan)")
 AUSSCHLUSS_TITEL = re.compile(r"(?i)^protokoll\b|\btrauer um\b|\bverstorben\b|\bnachruf\b")
 # Kategorien/Tags ohne Aussagekraft als Schlagwort
 GENERISCH = {"Featured", "Sonstiges", "Archiv", "Aktuelles", "Allgemein", "Uncategorized",
@@ -325,12 +329,15 @@ def lade_facebook(basis, bericht):
     log("Facebook: lese posts.json …")
     with open(pfad, encoding="utf-8") as f:
         posts = json.load(f)["posts"]
-    beitraege, leer = [], 0
+    beitraege, leer, plaene = [], 0, 0
     for p in posts:
         text = (p.get("message") or "").strip()
         bilder = p.get("_bilder") or []
         if not text and not bilder:
             leer += 1
+            continue
+        if WOCHENPLAN.search(text[:80]):
+            plaene += 1
             continue
         links = []
         for a in (p.get("attachments") or {}).get("data", []):
@@ -357,7 +364,8 @@ def lade_facebook(basis, bericht):
         })
     bericht["fb_beitraege"] = len(beitraege)
     bericht["fb_leer"] = leer
-    log(f"  {len(beitraege)} Posts übernommen, {leer} ohne Text und Bild übersprungen.")
+    bericht["fb_wochenplaene"] = plaene
+    log(f"  {len(beitraege)} Posts übernommen, {leer} ohne Text und Bild, {plaene} Wochenpläne übersprungen.")
     return beitraege
 
 
@@ -538,6 +546,7 @@ def main():
         f"  aus WordPress:         {bericht['wp_beitraege']}",
         f"  aus Facebook:          {bericht['fb_beitraege']} (davon {len(bericht['zusammengefuehrt'])} mit WP-Beitrag zusammengeführt)",
         f"  FB ohne Text/Bild:     {bericht['fb_leer']} übersprungen",
+        f"  FB-Wochenpläne:        {bericht['fb_wochenplaene']} übersprungen",
         f"  gesperrt:              {len(gesperrt)} Beiträge, {gesperrte_bilder} Bilder",
         f"Zeitraum:                {alle[-1]['datum']} bis {alle[0]['datum']}" if alle else "",
         "Pro Sparte:              " + ", ".join(f"{k}: {v}" for k, v in
@@ -557,7 +566,7 @@ def main():
         f.write("\n".join(zeilen) + "\n")
 
     log("\n================ ERGEBNIS ================")
-    for z in zeilen[2:14]:
+    for z in zeilen[2:15]:
         log(z)
     log(f"\nAusgabe: {ziel}  (Details in bericht.txt)")
     log("Bitte diese Ausgabe ab '==== ERGEBNIS ====' in den Chat kopieren.")

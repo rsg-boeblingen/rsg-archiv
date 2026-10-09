@@ -3,8 +3,8 @@
 Durchsuchbares Archiv früherer Beiträge der RSG Böblingen e.V. aus allen Sparten
 (Triathlon, Blindensport, Radsport, Verein): die alte WordPress-Website (2006–2025,
 eingefroren) und die Facebook-Seite „RSG Böblingen Triathlon Team“ (2012–heute,
-nur Triathlon). Rund 830 Beiträge. Nicht aufgenommen: Vorstandsprotokolle und
-Nachrufe (Beschluss 9.10.2026, Regeln in `rsg_archiv_import.py`).
+nur Triathlon). Rund 540 Beiträge. Nicht aufgenommen: Vorstandsprotokolle,
+Nachrufe und Facebook-Wochenpläne (Beschluss 9.10.2026, Regeln in `rsg_archiv_import.py`).
 
 Live (passwortgeschützte Vorschau): https://rsg-boeblingen.de/archiv/
 
