@@ -48,6 +48,9 @@ Voraussetzung: `pip3 install --user 'pagefind[extended]'`.
 
 ## Beiträge oder Fotos entfernen
 
+Löschwünsche kommen per Mail an web@rsg-boeblingen.de (Hinweis auf jeder
+Archivseite; auf Beitragsseiten enthält der Betreff die Beitrags-ID).
+
 Die ID des Beitrags (z. B. `fb-1503906198423322` oder `wp-15017`, steht in der
 Adresse der Beitragsseite) bzw. den Dateinamen des Bildes in
 `~/rsg-archiv-import/sperrliste.txt` eintragen (eine Zeile pro Eintrag) und das
