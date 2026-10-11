@@ -271,7 +271,7 @@ def fuss(tiefe):
       <div>
         <h4>Archiv</h4>
         <p>Frühere Beiträge aller Sparten von der alten Vereinswebsite und der Facebook-Seite „RSG Böblingen Triathlon Team“.</p>
-        <p>Sie sind auf einem Foto oder in einem Beitrag zu sehen und möchten, dass er entfernt wird? Schreiben Sie an <a class="js-email" data-email-user="webmaster" data-email-domain="rsg-boeblingen.de" data-email-subject="Vereinsarchiv%3A%20Bitte%20entfernen">webmaster (at) rsg-boeblingen.de</a>.</p>
+        <p>Sie sind auf einem Foto oder in einem Beitrag zu sehen und möchten, dass er entfernt wird? Schreiben Sie an <a class="js-email" data-email-user="web" data-email-domain="rsg-boeblingen.de" data-email-subject="Vereinsarchiv%3A%20Bitte%20entfernen">web (at) rsg-boeblingen.de</a>.</p>
       </div>
     </div>
     <div class="footer-bottom"><span>&copy; 2026 RSG Böblingen e.V.</span><a href="{h}/impressum.html">Impressum · Datenschutz</a></div>
@@ -289,8 +289,8 @@ def entfernen_hinweis(beitrag_id=None):
     was = "auf einem Foto oder in diesem Beitrag" if beitrag_id else "auf einem Foto oder in einem Beitrag"
     return (f'<aside class="entfernen-hinweis" data-pagefind-ignore aria-label="Hinweis zum Entfernen von Inhalten">'
             f'<p><strong>Sie sind {was} zu sehen und möchten, dass er entfernt wird?</strong> '
-            f'Schreiben Sie an <a class="js-email" data-email-user="webmaster" data-email-domain="rsg-boeblingen.de" '
-            f'data-email-subject="{betreff}">webmaster (at) rsg-boeblingen.de</a> – wir kümmern uns zeitnah darum.</p></aside>')
+            f'Schreiben Sie an <a class="js-email" data-email-user="web" data-email-domain="rsg-boeblingen.de" '
+            f'data-email-subject="{betreff}">web (at) rsg-boeblingen.de</a> – wir kümmern uns zeitnah darum.</p></aside>')
 
 
 def datum_text(iso):
