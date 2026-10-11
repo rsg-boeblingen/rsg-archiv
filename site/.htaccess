@@ -1,12 +1,9 @@
-# Archiv-Vorschau: Passwortschutz (HTTP Basic Auth).
-# Die Passwortdatei liegt NICHT im Repo, sondern einmalig per SFTP hochgeladen
-# im Webspace-Stamm (htdocs), außerhalb des Web-Ordners /new.
-AuthType Basic
-AuthName "RSG Archiv – Vorschau"
-AuthUserFile /homepages/42/d115502871/htdocs/.htpasswd-archiv
-Require valid-user
+# Vereinsarchiv – öffentlich seit dem Start (Vorstandsbeschluss 10.10.2026).
+# Der frühere Passwortschutz (HTTP Basic Auth) ist entfernt; die Passwortdatei
+# /.htpasswd-archiv im Webspace-Stamm wird nicht mehr benötigt.
 
-# Nicht von Suchmaschinen erfassen (zusätzlich zu <meta name="robots">)
+# Nicht von Suchmaschinen erfassen (zusätzlich zu <meta name="robots"> in jeder Seite).
+# Bewusst KEIN Disallow in robots.txt: sonst sehen Suchmaschinen das noindex nicht.
 <IfModule mod_headers.c>
   Header set X-Robots-Tag "noindex, nofollow"
 </IfModule>
