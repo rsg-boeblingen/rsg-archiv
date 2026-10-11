@@ -231,7 +231,6 @@ def kopf(titel, tiefe, beschreibung=""):
       <ul>
         <li><a href="{h}/index.html#Home">Home</a></li>
         <li><a href="{h}/aktuelles.html">Aktuelles</a></li>
-        <li><a href="{up}index.html" aria-current="page">Archiv</a></li>
         <li><a href="{h}/index.html#Training">Triathlon</a></li>
         <li><a href="{h}/index.html#Blindensport">Blindensport</a></li>
         <li><a href="{h}/vereinsheim-mieten.html">Vereinsheim &amp; Vermietung</a></li>
@@ -245,6 +244,7 @@ def kopf(titel, tiefe, beschreibung=""):
 
 def fuss(tiefe):
     h = HAUPTSEITE
+    up = "../" * tiefe
     return f"""<footer>
   <div class="container">
     <div class="footer-grid">
@@ -257,6 +257,7 @@ def fuss(tiefe):
         <ul>
           <li><a href="{h}/index.html#Home">Home</a></li>
           <li><a href="{h}/aktuelles.html">Aktuelles</a></li>
+          <li><a href="{up}index.html" aria-current="page">Archiv</a></li>
           <li><a href="{h}/index.html#Training">Triathlon</a></li>
           <li><a href="{h}/index.html#Blindensport">Blindensport</a></li>
           <li><a href="{h}/vereinsheim-mieten.html">Vereinsheim &amp; Vermietung</a></li>
