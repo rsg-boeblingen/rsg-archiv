@@ -8,8 +8,8 @@ Siehe README.md für Aufbau und Arbeitsablauf.
   von Hand ändern, sondern das Script anpassen und neu bauen.
 - Jeder Push auf `main`, der `site/` ändert, geht sofort live. Keine Änderungen auf
   `main` ohne Rückfrage; Branch + Pull Request.
-- `site/.htaccess` enthält den Passwortschutz – nie entfernen oder ändern ohne
-  ausdrückliche Freigabe.
+- `site/.htaccess` enthält die Suchmaschinen-Sperre (`X-Robots-Tag: noindex`) – nie
+  entfernen oder ändern ohne ausdrückliche Freigabe.
 - Header/Footer/CSS/Schriften kommen von der Hauptseite (Repo `rsg-web`) über
   root-relative Pfade (`/css/style.css?v=N`). Wird dort `style.css` geändert und die
   Version erhöht, `CSS_VERSION` in `rsg_archiv_seiten.py` nachziehen.

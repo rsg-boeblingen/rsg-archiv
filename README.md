@@ -6,14 +6,14 @@ eingefroren) und die Facebook-Seite „RSG Böblingen Triathlon Team“ (2012–
 nur Triathlon). Rund 540 Beiträge. Nicht aufgenommen: Vorstandsprotokolle,
 Nachrufe und Facebook-Wochenpläne (Beschluss 9.10.2026, Regeln in `rsg_archiv_import.py`).
 
-Live (passwortgeschützte Vorschau): https://rsg-boeblingen.de/archiv/
+Live: https://rsg-boeblingen.de/archiv/ (öffentlich, für Suchmaschinen gesperrt)
 
 ## Aufbau
 
 | Pfad | Inhalt |
 | --- | --- |
 | `scripts/` | Python-Scripts für Sicherung, Import und Seitenbau (laufen lokal auf dem Mac) |
-| `site/` | fertige Website: `index.html` (Suche), `b/<id>.html` (Beiträge), `pagefind/` (Suchindex), `archiv.css/js`, `.htaccess` (Passwortschutz) |
+| `site/` | fertige Website: `index.html` (Suche), `b/<id>.html` (Beiträge), `pagefind/` (Suchindex), `archiv.css/js`, `.htaccess` (Suchmaschinen-Sperre) |
 | `.github/workflows/deploy.yml` + `scripts/deploy.py` | lädt bei jedem Push auf `main` nur die geänderten Dateien aus `site/` per SFTP nach `/new/archiv` und löscht entfernte Dateien dort; ein Voll-Deploy lässt sich unter Actions → Run workflow → „voll“ starten |
 
 **Nicht im Repo** (liegen lokal unter `~/rsg-archiv-import/` auf dem Mac Studio):
@@ -59,10 +59,12 @@ automatisch; die Bilder unter `/new/archiv/bilder/*/<id>/` (nicht im Repo) per S
 
 ## Passwortschutz
 
-`site/.htaccess` verlangt einen Login (HTTP Basic Auth). Die Passwortdatei
-`/.htpasswd-archiv` liegt im Webspace-Stamm (außerhalb von `/new`) und wird nur
-per SFTP gepflegt, nie im Repo. Zum Freischalten für alle: die Zeilen
-`AuthType` … `Require valid-user` aus `site/.htaccess` entfernen.
+Während der Feedback-Phase war das Archiv per HTTP Basic Auth geschützt
+(`/.htpasswd-archiv` im Webspace-Stamm). Seit dem öffentlichen Start enthält
+`site/.htaccess` nur noch die Suchmaschinen-Sperre (`X-Robots-Tag: noindex`).
+Für eine erneute Vorschau-Phase die Zeilen `AuthType Basic`, `AuthName`,
+`AuthUserFile /homepages/42/d115502871/htdocs/.htpasswd-archiv` und
+`Require valid-user` wieder eintragen.
 
 ## Pflege
 
@@ -70,7 +72,6 @@ per SFTP gepflegt, nie im Repo. Zum Freischalten für alle: die Zeilen
 | --- | --- |
 | alle paar Monate | Neue Facebook-Posts übernehmen: `rsg_fb_sichern.py` → `rsg_archiv_import.py` → `rsg_archiv_seiten.py --repo …` → push (siehe „Archiv neu bauen“), dann `rsg_bilder_hochladen.py` |
 | bei Löschwunsch | ID in `sperrliste.txt`, neu bauen, pushen; Bilder auf dem Server per SFTP löschen (siehe oben) |
-| neue Feedback-Person | `htpasswd -B ~/rsg-archiv-import/.htpasswd-archiv NAME` (ohne `-c`!) und die Datei per SFTP nach `/.htpasswd-archiv` hochladen |
 | wenn `style.css?v=N` in `rsg-web` erhöht wird | `CSS_VERSION` in `scripts/rsg_archiv_seiten.py` anpassen und neu bauen |
 | regelmäßig | `~/rsg-archiv-import/` sichern (Time Machine / externe Platte) – einzige Kopie der Quelldaten |
 
