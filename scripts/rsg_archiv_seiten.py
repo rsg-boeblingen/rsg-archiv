@@ -29,7 +29,7 @@ import subprocess
 import sys
 
 E = html.escape
-ARCHIV_VERSION = "3"   # bei Änderungen an archiv.css / archiv.js erhöhen
+ARCHIV_VERSION = "4"   # bei Änderungen an archiv.css / archiv.js erhöhen
 MONATE = ["Januar", "Februar", "März", "April", "Mai", "Juni", "Juli", "August",
           "September", "Oktober", "November", "Dezember"]
 QUELLE_NAME = {"wordpress": "Alte Website", "facebook": "Facebook"}
@@ -63,6 +63,10 @@ CSS = r"""
 .archiv .badge{display:inline-block;font-size:.72rem;padding:1px 8px;border-radius:999px;background:var(--rsg-blue-alt);color:var(--rsg-blue-dark);font-weight:700}
 .archiv .badge.sparte{background:var(--rsg-blue-dark);color:#fff}
 .archiv .mehr{display:block;margin:20px auto 0}
+.archiv .entfernen-hinweis{display:flex;gap:12px;align-items:flex-start;margin:0 0 24px;padding:14px 16px;border-left:4px solid var(--rsg-yellow);background:var(--rsg-blue-soft);border-radius:0 var(--radius) var(--radius) 0;font-size:.95rem;line-height:1.5}
+.archiv .entfernen-hinweis p{margin:0;font-size:inherit}
+.archiv .entfernen-hinweis a{color:var(--rsg-blue-dark);font-weight:700;text-decoration:underline}
+.archiv .beitrag-ende .entfernen-hinweis{margin:32px 0 0}
 .archiv .hinweis{margin-top:40px;padding:14px 16px;border-left:4px solid var(--rsg-yellow);background:var(--rsg-blue-soft);font-size:.9rem;color:var(--rsg-text-muted)}
 .archiv .zurueck{display:inline-block;margin-bottom:8px;font-weight:700;color:var(--rsg-blue-dark)}
 .archiv .zurueck:hover{color:var(--rsg-red)}
@@ -227,8 +231,8 @@ def kopf(titel, tiefe, beschreibung=""):
       <ul>
         <li><a href="{h}/index.html#Home">Home</a></li>
         <li><a href="{h}/aktuelles.html">Aktuelles</a></li>
-        <li><a href="{h}/index.html#Training">Triathlon</a></li>
         <li><a href="{up}index.html" aria-current="page">Archiv</a></li>
+        <li><a href="{h}/index.html#Training">Triathlon</a></li>
         <li><a href="{h}/index.html#Blindensport">Blindensport</a></li>
         <li><a href="{h}/vereinsheim-mieten.html">Vereinsheim &amp; Vermietung</a></li>
         <li><a href="{h}/kontakt.html">Kontakt</a></li>
@@ -267,7 +271,7 @@ def fuss(tiefe):
       <div>
         <h4>Archiv</h4>
         <p>Frühere Beiträge aller Sparten von der alten Vereinswebsite und der Facebook-Seite „RSG Böblingen Triathlon Team“.</p>
-        <p>Sie möchten einen Beitrag oder ein Foto entfernen lassen? Eine kurze Nachricht an vorstand (at) rsg-boeblingen.de genügt.</p>
+        <p>Sie sind auf einem Foto oder in einem Beitrag zu sehen und möchten, dass er entfernt wird? Schreiben Sie an <a class="js-email" data-email-user="webmaster" data-email-domain="rsg-boeblingen.de" data-email-subject="Vereinsarchiv%3A%20Bitte%20entfernen">webmaster (at) rsg-boeblingen.de</a>.</p>
       </div>
     </div>
     <div class="footer-bottom"><span>&copy; 2026 RSG Böblingen e.V.</span><a href="{h}/impressum.html">Impressum · Datenschutz</a></div>
@@ -276,6 +280,17 @@ def fuss(tiefe):
 <button type="button" class="back-to-top" id="backToTop" aria-label="Nach oben"><svg viewBox="0 0 24 24"><path d="M18 15l-6-6-6 6"/></svg></button>
 <script src="{h}/js/script.js?v={JS_VERSION}"></script>
 """
+
+
+def entfernen_hinweis(beitrag_id=None):
+    """Gut sichtbarer Hinweis mit Kontakt (Vorstandsbeschluss 10.10.2026). Die Adresse wird –
+    wie auf der Hauptseite – erst im Browser von /js/script.js zusammengesetzt (Spam-Schutz)."""
+    betreff = "Vereinsarchiv%3A%20Bitte%20entfernen" + (f"%20({beitrag_id})" if beitrag_id else "")
+    was = "auf einem Foto oder in diesem Beitrag" if beitrag_id else "auf einem Foto oder in einem Beitrag"
+    return (f'<aside class="entfernen-hinweis" data-pagefind-ignore aria-label="Hinweis zum Entfernen von Inhalten">'
+            f'<p><strong>Sie sind {was} zu sehen und möchten, dass er entfernt wird?</strong> '
+            f'Schreiben Sie an <a class="js-email" data-email-user="webmaster" data-email-domain="rsg-boeblingen.de" '
+            f'data-email-subject="{betreff}">webmaster (at) rsg-boeblingen.de</a> – wir kümmern uns zeitnah darum.</p></aside>')
 
 
 def datum_text(iso):
@@ -327,7 +342,7 @@ def detailseite(b):
 <span hidden>{''.join(filter_spans)}</span>
 <div class="chips" data-pagefind-ignore>{chips}</div>
 <div class="text">{absaetze}</div>
-<div data-pagefind-ignore>{galerie}<div class="quellen">{''.join(links)}</div></div>
+<div data-pagefind-ignore class="beitrag-ende">{galerie}<div class="quellen">{''.join(links)}</div>{entfernen_hinweis(b["id"])}</div>
 </article>
 </div></main>
 {fuss(1)}<script src="../archiv.js?v={ARCHIV_VERSION}" defer></script>
@@ -340,6 +355,7 @@ def indexseite(anzahl, von, bis):
             f"""<main id="inhalt" class="archiv"><div class="container">
 <h1>Vereinsarchiv</h1>
 <p class="lead">{anzahl} Berichte, Fotos und Meldungen aus {von}–{bis} – Triathlon, Blindensport, Radsport und Vereinsleben. Suche nach Namen, Wettkämpfen, Touren, Orten oder Stichworten.</p>
+{entfernen_hinweis()}
 <div class="suche" role="search">
   <div class="suchzeile">
     <label for="q" class="unsichtbar">Suchbegriff</label>
